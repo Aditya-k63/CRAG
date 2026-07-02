@@ -15,12 +15,12 @@ Frontend Services: Hosted on port 10000. It reads user prompts, forwards them in
 
 Repository Layout
 
-textCRAG/
+CRAG/
 ├── .github/
 │   └── workflows/
 │       └── build-pipeline.yml   # CI/CD automated linting and validation pipeline
 ├── Dockerfile                  # Unified Docker multi-service build recipe
-├── app.py                      # Streamlit UI implementation 
+├── app.py                      # Streamlit UI implementation
 ├── docker-compose.yml          # Local container orchestration matrix
 ├── evaluate.py                 # RAG accuracy evaluation scripts
 ├── ingestion.py                # PDF processing and text split pipeline
