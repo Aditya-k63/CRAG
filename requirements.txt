@@ -1,0 +1,21 @@
+# Core Agent Web & Server Stack
+fastapi>=0.110.0
+uvicorn>=0.28.0
+streamlit>=1.32.0
+requests>=2.31.0
+
+# Database & Vector Engine
+psycopg2-binary>=2.9.9
+pgvector>=0.2.5
+
+# Advanced LLM & AI Pipeline (LangGraph & Groq Engine)
+langgraph>=0.0.30
+groq>=0.9.0
+duckduckgo-search>=6.1.7
+
+# Local Embeddings & Structural Text Parsing
+sentence-transformers>=2.5.1
+pdfplumber>=0.11.10
+
+# CI/CD Quality Assurance
+flake8>=7.3.0
