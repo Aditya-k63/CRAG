@@ -29,33 +29,6 @@
         New Chat
       </button>
 
-      <nav class="side-nav">
-        <button class="nav-item" data-nav="new-chat">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 9h4v2h-4v4h-2v-4H7v-2h4V7h2Z"/></svg>
-          New Chat
-        </button>
-        <button class="nav-item" data-nav="library">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4 4h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2 2H4V4Zm16 0h-6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6V4Zm-8 2H4M12 6v12M4 2h2v4H4V2Zm14 0h2v4h-2V2Z" opacity=".8"/><path fill="currentColor" d="M6 2h4v4H6z"/></svg>
-          Library
-        </button>
-        <button class="nav-item" data-nav="projects">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm16 0H5v14h14V5Z"/><path fill="currentColor" d="M7 8h10v2H7V8Zm0 4h6v2H7v-2Z"/></svg>
-          Projects
-        </button>
-        <button class="nav-item" data-nav="tasks">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M9 4V3h6v1h2a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2Zm2 1v1h2V5h-2Zm-3 3v11h8V8H8Zm2 3h4v2h-4v-2Zm0 4h4v2h-4v-2Z"/></svg>
-          Tasks
-        </button>
-        <button class="nav-item" data-nav="plugins">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2V7a5 5 0 0 1 5-5Zm-3 8H7v2h2v-2Zm4 0h-2v2h2v-2Zm4 0h-2v2h2v-2Z" opacity=".7"/><path fill="currentColor" d="M10 7a2 2 0 1 1 4 0H10Z"/></svg>
-          Plugins
-        </button>
-        <button class="nav-item" data-nav="more">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="5" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="19" r="1.7" fill="currentColor"/></svg>
-          More
-        </button>
-      </nav>
-
       <div class="sidebar-sections">
         <section id="pinned-section" class="conv-section hidden">
           <div class="section-label">Pinned</div>
@@ -92,19 +65,13 @@
           <span id="chat-title" class="chat-title">New Chat</span>
           <span id="status-dot" class="status-dot offline" title="API status"></span>
         </div>
-        <div class="topbar-actions">
-          <select id="topbar-model" class="model-select" title="Model"></select>
-          <button id="topbar-new" class="new-chat-btn compact" title="New Chat">
-            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>
-          </button>
-        </div>
       </header>
 
       <section id="welcome-view" class="welcome">
         <div class="welcome-inner">
           <div class="welcome-title">What can I help with?</div>
           <div id="welcome-composer" class="composer"></div>
-          <div class="welcome-hint" id="welcome-hint">Ask about your documents. Attach a PDF to add it to the knowledge base.</div>
+          <div class="welcome-hint" id="welcome-hint">Upload documents directly here</div>
         </div>
       </section>
 
@@ -125,8 +92,6 @@
       <div class="modal-body">
         <label class="field-label" for="setting-api-key">API Key</label>
         <input id="setting-api-key" type="password" class="text-input" placeholder="rag-secret-2026" />
-        <label class="field-label" for="setting-model">Default Model</label>
-        <select id="setting-model" class="text-input"></select>
         <label class="field-label" for="setting-topk">Top K (retrieval depth)</label>
         <input id="setting-topk" type="number" class="text-input" min="1" max="10" value="3" />
         <div class="status-row" id="setting-status"></div>

@@ -2,21 +2,10 @@
 (function () {
   "use strict";
 
-  var MODELS = [
-    "groq/compound-mini",
-    "groq/compound",
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
-    "qwen/qwen3.6-27b",
-    "allam-2-7b"
-  ];
-  var DEFAULT_MODEL = "groq/compound-mini";
-
   var STORE = {
     sessions: "crag_sessions",
     current: "crag_current",
     apiKey: "crag_api_key",
-    model: "crag_model",
     topK: "crag_topk"
   };
 
@@ -43,10 +32,6 @@
     return localStorage.getItem(STORE.apiKey) || "rag-secret-2026";
   }
 
-  function getModel() {
-    return localStorage.getItem(STORE.model) || DEFAULT_MODEL;
-  }
-
   function getTopK() {
     var n = parseInt(localStorage.getItem(STORE.topK), 10);
     return n >= 1 && n <= 10 ? n : 3;
@@ -57,7 +42,7 @@
 
   if (!currentId || !sessions[currentId]) {
     currentId = uid();
-    sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [], model: getModel() };
+    sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [] };
     save(STORE.sessions, sessions);
     save(STORE.current, currentId);
   }
@@ -86,8 +71,6 @@
     setTimeout(function () { t.remove(); }, 3200);
   }
 
-  var $ = function (sel) { return document.querySelector(sel); };
-
   // ---------- Status ----------
   function setStatus(online) {
     var dot = document.getElementById("status-dot");
@@ -108,49 +91,24 @@
   function svgIcon(name) {
     var icons = {
       plus: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>',
-      send: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg>',
-      mic: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>'
+      send: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg>'
     };
     return icons[name] || "";
   }
 
-  function buildModelOptions() {
-    var opts = MODELS.map(function (m) {
-      return '<option value="' + m + '">' + m + "</option>";
-    }).join("");
-    return opts;
-  }
-
-  function buildComposer(container, model) {
+  function buildComposer(container) {
     container.innerHTML =
       '<div class="composer">' +
         '<button class="icon-btn attach-btn" title="Attach PDF" aria-label="Attach PDF">' + svgIcon("plus") + "</button>" +
         '<textarea rows="1" placeholder="Ask anything..." aria-label="Message"></textarea>' +
-        '<select class="model-select" title="Model" aria-label="Model">' + buildModelOptions() + "</select>" +
-        '<button class="icon-btn mic-btn" title="Voice input" aria-label="Voice input">' + svgIcon("mic") + "</button>" +
         '<button class="send-btn" disabled aria-label="Send">' + svgIcon("send") + "</button>" +
       "</div>";
-    container.querySelector(".model-select").value = model;
     wireComposer(container);
   }
 
   function wireComposer(container) {
     var textarea = container.querySelector("textarea");
     var sendBtn = container.querySelector(".send-btn");
-    var micBtn = container.querySelector(".mic-btn");
-    var modelSel = container.querySelector(".model-select");
-
-    function syncAllModels(value) {
-      var sels = document.querySelectorAll(".model-select");
-      for (var i = 0; i < sels.length; i++) sels[i].value = value;
-      document.getElementById("topbar-model").value = value;
-    }
-
-    modelSel.addEventListener("change", function () {
-      syncAllModels(modelSel.value);
-      currentSession().model = modelSel.value;
-      persist();
-    });
 
     textarea.addEventListener("input", function () {
       sendBtn.disabled = textarea.value.trim() === "";
@@ -171,38 +129,6 @@
     attachBtn.addEventListener("click", function () {
       document.getElementById("file-input").click();
     });
-
-    micBtn.addEventListener("click", function () { startMic(micBtn); });
-  }
-
-  function composerModelSelect() {
-    return currentSession().model || getModel();
-  }
-
-  // ---------- Mic ----------
-  var recognition = null;
-  function startMic(btn) {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { toast("Voice input is not supported in this browser", true); return; }
-    if (!recognition) {
-      recognition = new SR();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.onresult = function (e) {
-        var text = e.results[0][0].transcript;
-        var active = document.querySelector(".composer:not(.hidden)");
-        if (active) {
-          var ta = active.querySelector("textarea");
-          ta.value = text;
-          ta.dispatchEvent(new Event("input"));
-          ta.focus();
-        }
-      };
-      recognition.onerror = function () { btn.classList.remove("mic-on"); };
-      recognition.onend = function () { btn.classList.remove("mic-on"); };
-    }
-    btn.classList.add("mic-on");
-    try { recognition.start(); } catch (e) { btn.classList.remove("mic-on"); }
   }
 
   // ---------- API ----------
@@ -222,11 +148,11 @@
     return data;
   }
 
-  async function sendQuery(question, model, topK) {
+  async function sendQuery(question, topK) {
     return api("/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: question, top_k: topK, model: model })
+      body: JSON.stringify({ question: question, top_k: topK })
     });
   }
 
@@ -300,10 +226,8 @@
       session.title = question.slice(0, 40);
     }
     session.updatedAt = Date.now();
-    session.model = composerModelSelect();
     persist();
 
-    var model = session.model;
     var topK = getTopK();
 
     textarea.value = "";
@@ -320,7 +244,7 @@
 
     var typing = typingIndicator();
 
-    sendQuery(question, model, topK)
+    sendQuery(question, topK)
       .then(function (data) {
         var source;
         var chunks = parseInt(data.chunks_used, 10) || 0;
@@ -354,7 +278,6 @@
   function refreshView() {
     var session = currentSession();
     document.getElementById("chat-title").textContent = session.title;
-    document.getElementById("topbar-model").value = session.model || getModel();
     if (session.messages.length === 0) {
       showWelcome();
     } else {
@@ -402,7 +325,7 @@
         delete sessions[s.id];
         if (currentId === s.id) {
           currentId = uid();
-          sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [], model: getModel() };
+          sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [] };
         }
         persist();
         renderSidebar();
@@ -425,7 +348,7 @@
 
   function newChat() {
     currentId = uid();
-    sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [], model: getModel() };
+    sessions[currentId] = { id: currentId, title: "New Chat", pinned: false, messages: [] };
     persist();
     renderSidebar();
     refreshView();
@@ -436,13 +359,10 @@
   // ---------- Sidebar toggle ----------
   function openSidebar() { document.body.classList.add("sidebar-open"); }
   function closeSidebar() { document.body.classList.remove("sidebar-open"); }
-  function toggleSidebar() { document.body.classList.toggle("sidebar-open"); }
 
   // ---------- Settings modal ----------
   function openSettings() {
     document.getElementById("setting-api-key").value = getApiKey();
-    document.getElementById("setting-model").innerHTML = buildModelOptions();
-    document.getElementById("setting-model").value = getModel();
     document.getElementById("setting-topk").value = getTopK();
     document.getElementById("settings-modal").classList.remove("hidden");
     loadDocuments();
@@ -495,33 +415,10 @@
 
   // ---------- Init ----------
   function init() {
-    // Populate model selects
-    document.getElementById("topbar-model").innerHTML = buildModelOptions();
-    document.getElementById("topbar-model").value = getModel();
+    buildComposer(document.getElementById("welcome-composer"));
+    buildComposer(document.getElementById("chat-composer"));
 
-    // Build composers
-    buildComposer(document.getElementById("welcome-composer"), getModel());
-    buildComposer(document.getElementById("chat-composer"), getModel());
-
-    // Wire topbar
-    document.getElementById("topbar-model").addEventListener("change", function (e) {
-      localStorage.setItem(STORE.model, e.target.value);
-      var sels = document.querySelectorAll(".model-select");
-      for (var i = 0; i < sels.length; i++) sels[i].value = e.target.value;
-      if (currentSession().title === "New Chat" || currentSession().messages.length === 0) {
-        currentSession().model = e.target.value;
-        persist();
-      }
-    });
-
-    document.getElementById("topbar-new").addEventListener("click", newChat);
     document.getElementById("new-chat-btn").addEventListener("click", newChat);
-    document.querySelectorAll(".nav-item").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        if (btn.dataset.nav === "new-chat") { newChat(); return; }
-        toast(btn.textContent.trim() + " is coming soon");
-      });
-    });
 
     document.getElementById("sidebar-open").addEventListener("click", openSidebar);
     document.getElementById("sidebar-close").addEventListener("click", closeSidebar);
@@ -537,11 +434,9 @@
     });
     document.getElementById("save-settings").addEventListener("click", function () {
       localStorage.setItem(STORE.apiKey, document.getElementById("setting-api-key").value.trim());
-      localStorage.setItem(STORE.model, document.getElementById("setting-model").value);
       localStorage.setItem(STORE.topK, String(parseInt(document.getElementById("setting-topk").value, 10) || 3));
       toast("Settings saved");
       closeSettings();
-      refreshView();
     });
     document.getElementById("clear-cache").addEventListener("click", function () {
       clearCache().then(function (d) {
