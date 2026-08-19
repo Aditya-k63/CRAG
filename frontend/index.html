@@ -38,9 +38,21 @@
           <div class="section-label">Recent</div>
           <div id="recent-list" class="conv-list"></div>
         </section>
+        <section id="documents-section" class="conv-section">
+          <div class="section-label">Documents</div>
+          <div id="documents-list" class="conv-list"></div>
+          <button id="upload-btn" class="upload-btn">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>
+            Upload PDF
+          </button>
+        </section>
       </div>
 
       <div class="sidebar-footer">
+        <button id="settings-btn" class="footer-btn" title="Settings">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2-1.2L14.5 3h-4l-.4 2.6a7.4 7.4 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z"/></svg>
+          <span>Settings</span>
+        </button>
         <div class="user-profile">
           <div class="avatar" id="avatar">AK</div>
           <div class="user-meta">
@@ -48,9 +60,6 @@
             <span class="user-plan" id="user-plan">Free Plan</span>
           </div>
         </div>
-        <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2-1.2L14.5 3h-4l-.4 2.6a7.4 7.4 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z"/></svg>
-        </button>
       </div>
     </aside>
     <div id="sidebar-backdrop"></div>
@@ -61,9 +70,20 @@
         <button id="sidebar-open" class="icon-btn" title="Open sidebar" aria-label="Open sidebar">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
         </button>
-        <div id="chat-header" class="chat-header">
-          <span id="chat-title" class="chat-title">New Chat</span>
+        <div class="chat-header">
+          <div class="header-titles">
+            <span id="chat-title" class="chat-title">CRAG Assistant</span>
+            <span id="chat-subtitle" class="chat-subtitle hidden"></span>
+          </div>
           <span id="status-dot" class="status-dot offline" title="API status"></span>
+        </div>
+        <div class="menu-wrap">
+          <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu">&#8943;</button>
+          <div id="menu-popup" class="menu-popup hidden">
+            <button data-act="evaluate">Evaluate last answer</button>
+            <button data-act="clear">Clear chat</button>
+            <button data-act="settings">Settings</button>
+          </div>
         </div>
       </header>
 
@@ -71,12 +91,12 @@
         <div class="welcome-inner">
           <div class="welcome-title">What can I help with?</div>
           <div id="welcome-composer" class="composer"></div>
-          <div class="welcome-hint" id="welcome-hint">Upload documents directly here</div>
+          <div class="welcome-hint" id="welcome-hint">Ask about your documents or upload a PDF to expand the knowledge base</div>
         </div>
       </section>
 
       <section id="chat-view" class="chat-view hidden">
-        <div id="messages" class="messages"></div>
+        <div id="messages" class="messages"><div class="messages-inner"></div></div>
         <div id="chat-composer" class="composer-wrap"></div>
       </section>
     </main>
@@ -97,9 +117,21 @@
         <div class="status-row" id="setting-status"></div>
         <button id="save-settings" class="primary-btn">Save Settings</button>
         <button id="clear-cache" class="ghost-btn">Clear Backend Cache</button>
-        <div class="modal-sep"></div>
-        <div class="field-label">Knowledge Base</div>
-        <div id="documents-list" class="documents-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evaluation modal -->
+  <div id="eval-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span class="modal-title">Evaluation</span>
+        <button class="icon-btn modal-close" data-eval-close="true" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div id="eval-loading" class="eval-loading hidden">Running evaluation...</div>
+        <div id="eval-question" class="eval-question hidden"></div>
+        <div id="eval-metrics" class="eval-metrics"></div>
       </div>
     </div>
   </div>
