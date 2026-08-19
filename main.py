@@ -3,11 +3,14 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Security, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pypdf import PdfReader
 
@@ -91,6 +94,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
+    model: Optional[str] = None
 
 
 class QueryResponse(BaseModel):
@@ -210,9 +214,13 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
 
 # --- Routes ---
-@app.get("/")
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
+
+
+@app.get("/", include_in_schema=False)
 def root():
-    return {"status": "Corrective Agentic RAG API is running"}
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
 @app.get("/health")
@@ -270,6 +278,7 @@ async def query(request: QueryRequest):
         "evaluation": "",
         "final_answer": "",
         "top_k": request.top_k,
+        "model": request.model,
     }
 
     try:
@@ -364,6 +373,7 @@ async def evaluate_query(request: QueryRequest):
         "evaluation": "",
         "final_answer": "",
         "top_k": request.top_k,
+        "model": request.model,
     }
     try:
         graph_output = crag_agent.invoke(initial_state)

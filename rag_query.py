@@ -28,6 +28,7 @@ class CRAGState(TypedDict):
     evaluation: str  # 'yes' or 'no'
     final_answer: str
     top_k: int  # optional: number of chunks to retrieve
+    model: str  # optional: Groq model override
 
 
 # ===================================================
@@ -95,6 +96,8 @@ def evaluation_node(state: CRAGState) -> dict:
 
     context_text = "\n\n".join(f"Content: {content}" for content, _score in chunks)
 
+    model = state.get("model") or GROQ_MODEL
+
     try:
         chat_completion = get_groq_client().chat.completions.create(
             messages=[
@@ -117,7 +120,7 @@ def evaluation_node(state: CRAGState) -> dict:
                     ),
                 },
             ],
-            model=GROQ_MODEL,
+            model=model,
             temperature=0.0,
             max_tokens=20,
         )
@@ -146,6 +149,7 @@ def generator_node(state: CRAGState) -> dict:
     print("\n[NODE: GENERATOR] Creating final answer via Groq...")
     chunks = state["retrieved_chunks"]
     context = "\n\n".join(f"{content}" for content, _score in chunks)
+    model = state.get("model") or GROQ_MODEL
 
     prompt = f"""You are a helpful assistant. Answer the question using ONLY the background context provided below.
 If you are using web search fallback data, summarize it accurately to answer the query.
@@ -162,7 +166,7 @@ Answer:"""
     try:
         chat_completion = get_groq_client().chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model=GROQ_MODEL,
+            model=model,
             temperature=0.3,
             max_tokens=1024,
         )
@@ -216,6 +220,7 @@ def rag_query(query: str, top_k: int = 3) -> str:
         "evaluation": "",
         "final_answer": "",
         "top_k": top_k,
+        "model": "",
     }
     result = crag_agent.invoke(initial_state)
     return result["final_answer"]

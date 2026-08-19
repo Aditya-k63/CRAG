@@ -1,6 +1,6 @@
 # CRAG — Corrective Retrieval-Augmented Generation Stack
 
-An end-to-end RAG system combining **LangGraph** agent orchestration with **Groq**'s inference engine for fast, context-aware question answering over your own documents. Built as a single deployable unit — FastAPI backend, Streamlit frontend, and a pgvector-backed knowledge store — designed to run comfortably on free-tier cloud hosting.
+An end-to-end RAG system combining **LangGraph** agent orchestration with **Groq**'s inference engine for fast, context-aware question answering over your own documents. Built as a single deployable unit — a FastAPI backend that serves both the API and a ChatGPT-style chat UI, backed by a pgvector knowledge store — designed to run comfortably on free-tier cloud hosting.
 
 ## Why this exists
 
@@ -35,8 +35,8 @@ The **correction** is the differentiator: if the local knowledge base doesn't ac
 - **PDF ingestion** — upload via the UI, text is extracted, chunked, and embedded straight into the vector store.
 - **pgvector-backed search** on PostgreSQL — structured, queryable, production-friendly.
 - **Groq inference** for low-latency LLM responses inside the agent loop.
-- **Streamlit dashboard** for real-time semantic search and live visibility into the agent's reasoning.
-- **Single-container deployment** — one Dockerfile, one process manager (supervisord, auto-restarts services), one exposed port.
+- **ChatGPT-style chat UI** — dark theme, conversation history, PDF attach, model selector, voice input.
+- **Single-container deployment** — one Dockerfile, one exposed port, everything behind one FastAPI process.
 
 ## Tech Stack
 
@@ -45,7 +45,7 @@ The **correction** is the differentiator: if the local knowledge base doesn't ac
 | Agent orchestration | LangGraph |
 | LLM inference | Groq |
 | Backend API | FastAPI + Uvicorn |
-| Frontend | Streamlit |
+| Frontend | Static HTML/CSS/JS chat UI (served by FastAPI) |
 | Vector storage | PostgreSQL + pgvector |
 | Embeddings / reranker | sentence-transformers (local) |
 | Hybrid retrieval | BM25 (rank-bm25) + RRF |
@@ -57,17 +57,19 @@ The **correction** is the differentiator: if the local knowledge base doesn't ac
 ```text
 CRAG/
 ├── .github/workflows/build-pipeline.yml   # CI: lint, unit tests, Docker build/push
-├── Dockerfile                             # Unified multi-service build recipe
+├── Dockerfile                             # Unified single-service build recipe
 ├── start.sh                               # Container entrypoint (honors $PORT)
-├── supervisord.conf                       # Process manager (auto-restart)
-├── app.py                                 # Streamlit UI
+├── frontend/                              # ChatGPT-style chat UI (HTML/CSS/JS)
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
 ├── config.py                              # Env settings + lazy-loaded models
 ├── db.py                                  # Lazy connection pool + schema bootstrap
 ├── utils.py                               # Pure helpers (chunking, fusion, cosine)
 ├── retrieval.py                           # Hybrid retrieval pipeline
 ├── metrics.py                             # Faithfulness / relevance / precision
 ├── rag_query.py                           # LangGraph CRAG agent
-├── main.py                                # FastAPI app
+├── main.py                                # FastAPI app (API + serves the UI)
 ├── ingestion.py                           # Schema init + batch ingestion
 ├── evaluate.py                            # RAG accuracy evaluation script
 ├── requirements.txt
@@ -88,7 +90,7 @@ copy .env.example .env     # then fill in GROQ_API_KEY
 docker compose up --build
 ```
 
-- Streamlit UI → `http://localhost:10000`
+- Chat UI → `http://localhost:8000`
 - FastAPI Swagger docs → `http://localhost:8000/docs`
 
 The DB schema is created automatically on app startup — no manual migration step.
@@ -117,6 +119,8 @@ pip install -r requirements.txt
 python run.py
 ```
 
+Open `http://localhost:8000` to chat with your documents.
+
 ## API
 
 All endpoints except `/` and `/health` require the `X-API-Key` header.
@@ -125,7 +129,7 @@ All endpoints except `/` and `/health` require the `X-API-Key` header.
 |---|---|---|
 | GET | `/health` | DB connectivity + cache size |
 | GET | `/documents` | List ingested PDFs and their chunk counts |
-| POST | `/query` | Ask a question through the CRAG agent (`{"question", "top_k"}`) |
+| POST | `/query` | Ask a question through the CRAG agent (`{"question", "top_k", "model"}`) |
 | POST | `/evaluate-query` | Query + RAG quality metrics, logged to `rag_evaluations` |
 | POST | `/upload` | Ingest a PDF (multipart `file`, optional `?force=true`) |
 | POST | `/cache/clear` | Clear the in-memory query cache |
