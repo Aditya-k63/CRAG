@@ -10,15 +10,14 @@ import rag_query
 
 
 class FakeGroq:
-    """Pretends to be a Groq client.
+    """Pretends to be an LLM completion.
 
-    The evaluation call (max_tokens=5) answers "yes"/"no" by scanning the
-    user message for 'relevant'; generation calls return a canned answer.
+    The evaluation call answers "yes"/"no" by scanning the user message for
+    'relevant'; generation calls return a canned answer.
     """
 
     def __init__(self):
         self.calls: list[str] = []
-        self.chat = self._Chat(self)
 
     class _Message:
         def __init__(self, content: str):
@@ -32,35 +31,27 @@ class FakeGroq:
         def __init__(self, content: str):
             self.choices = [FakeGroq._Choice(content)]
 
-    class _Completions:
-        def __init__(self, owner: "FakeGroq"):
-            self._owner = owner
-
-        def create(self, messages, **kwargs):
-            user = messages[-1]["content"]
-            self._owner.calls.append(user)
-            if "Answer exactly 'yes' or 'no':" in user:
-                text = "yes" if "relevant" in user.lower() else "no"
-            else:
-                text = "Generated answer."
-            return FakeGroq._Completion(text)
-
-    class _Chat:
-        def __init__(self, owner: "FakeGroq"):
-            self.completions = FakeGroq._Completions(owner)
+    def complete(self, messages, model=None, temperature=0.0, max_tokens=512):
+        user = messages[-1]["content"]
+        self.calls.append(user)
+        if "Answer exactly 'yes' or 'no':" in user:
+            text = "yes" if "relevant" in user.lower() else "no"
+        else:
+            text = "Generated answer."
+        return FakeGroq._Completion(text)
 
 
 def fake_retrieve(query: str, top_k: int = 3):
     if "relevant" in query.lower():
-        return [("relevant context about " + query, 0.95) for _ in range(top_k)]
-    return [("unrelated gardening text", 0.05)]
+        return [("relevant context about " + query, 0.95, "research_paper.pdf") for _ in range(top_k)]
+    return [("unrelated gardening text", 0.05, "unrelated.pdf")]
 
 
 @pytest.fixture
 def patched_agent(monkeypatch):
     fake = FakeGroq()
     monkeypatch.setattr(rag_query, "retrieve_chunks", fake_retrieve)
-    monkeypatch.setattr(rag_query, "get_groq_client", lambda: fake)
+    monkeypatch.setattr(rag_query, "llm_complete", fake.complete)
     return fake
 
 
@@ -96,11 +87,15 @@ class TestGraphRouting:
 
 class TestGraphRobustness:
     def test_evaluator_error_falls_back_to_web(self, monkeypatch):
-        def evaluator_boom_only():
-            return _FailingEvaluationGroq()
+        class _FailingEvaluationFake(FakeGroq):
+            def complete(self, messages, model=None, temperature=0.0, max_tokens=512):
+                user = messages[-1]["content"]
+                if "Answer exactly 'yes' or 'no':" in user:
+                    raise RuntimeError("Groq down")
+                return FakeGroq._Completion("Generated answer.")
 
         monkeypatch.setattr(rag_query, "retrieve_chunks", fake_retrieve)
-        monkeypatch.setattr(rag_query, "get_groq_client", evaluator_boom_only)
+        monkeypatch.setattr(rag_query, "llm_complete", _FailingEvaluationFake().complete)
 
         result = invoke("Relevant question but Groq is down")
         assert result["evaluation"] == "no"  # evaluator failed -> defaulted to fallback
@@ -110,51 +105,19 @@ class TestGraphRobustness:
     def test_empty_retrieval_routes_to_web(self, monkeypatch):
         monkeypatch.setattr(rag_query, "retrieve_chunks", lambda query, top_k=3: [])
         fake = FakeGroq()
-        monkeypatch.setattr(rag_query, "get_groq_client", lambda: fake)
+        monkeypatch.setattr(rag_query, "llm_complete", fake.complete)
 
         result = invoke("Anything")
         assert result["evaluation"] == "no"
         assert len(result["retrieved_chunks"]) == 1
 
     def test_generator_failure_reports_error_not_crash(self, monkeypatch):
+        class _BoomFake(FakeGroq):
+            def complete(self, messages, model=None, temperature=0.0, max_tokens=512):
+                raise RuntimeError("connection refused")
+
         monkeypatch.setattr(rag_query, "retrieve_chunks", fake_retrieve)
-        monkeypatch.setattr(
-            rag_query, "get_groq_client", lambda: FakeGroq() if False else _BoomGroq()
-        )
+        monkeypatch.setattr(rag_query, "llm_complete", _BoomFake().complete)
 
         result = invoke("Relevant question")
         assert result["final_answer"].startswith("Error generating final response")
-
-
-class _BoomGroq:
-    """Groq client that fails on every call."""
-
-    class _Completions:
-        def create(self, messages, **kwargs):
-            raise RuntimeError("connection refused")
-
-    class _Chat:
-        def __init__(self):
-            self.completions = _BoomGroq._Completions()
-
-    def chat(self):
-        return self._Chat()
-
-
-class _FailingEvaluationGroq(FakeGroq):
-    """Fails the evaluation call but succeeds at generation."""
-
-    class _FailingCompletions(FakeGroq._Completions):
-        def create(self, messages, **kwargs):
-            user = messages[-1]["content"]
-            if "Answer exactly 'yes' or 'no':" in user:
-                raise RuntimeError("Groq down")
-            return FakeGroq._Completion("Generated answer.")
-
-    class _Chat(FakeGroq._Chat):
-        def __init__(self, owner: "_FailingEvaluationGroq"):
-            self.completions = _FailingEvaluationGroq._FailingCompletions(owner)
-
-    def __init__(self):
-        self.calls: list[str] = []
-        self.chat = self._Chat(self)

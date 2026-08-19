@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pypdf import PdfReader
 
-from config import get_embedder
+from config import get_embedder, get_reranker
 from db import get_connection, init_db_schema, release_connection
 from metrics import evaluate
 from rag_query import crag_agent
@@ -54,6 +54,13 @@ async def lifespan(_app: FastAPI):
         logger.info("Database schema verified/created on startup.")
     except Exception as e:
         logger.error(f"Schema init failed at startup: {e}")
+    # Warm up ML models so the first query doesn't block on lazy loading.
+    for name, loader in (("embedder", get_embedder), ("reranker", get_reranker)):
+        try:
+            loader()
+            logger.info(f"Warmed up {name}.")
+        except Exception as e:
+            logger.error(f"Failed to warm up {name}: {e}")
     yield
 
 
@@ -101,6 +108,7 @@ class QueryResponse(BaseModel):
     question: str
     answer: str
     chunks_used: int
+    sources: list = []
 
 
 class UploadResponse(BaseModel):
@@ -224,7 +232,7 @@ def root():
 
 
 @app.get("/health")
-async def health():
+def health():
     conn = None
     try:
         conn = get_connection()
@@ -238,7 +246,7 @@ async def health():
 
 
 @app.get("/documents", dependencies=[Depends(verify_api_key)])
-async def list_documents():
+def list_documents():
     conn = None
     try:
         conn = get_connection()
@@ -262,7 +270,7 @@ async def list_documents():
 
 
 @app.post("/query", response_model=QueryResponse, dependencies=[Depends(verify_api_key)])
-async def query(request: QueryRequest):
+def query(request: QueryRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
@@ -289,22 +297,24 @@ async def query(request: QueryRequest):
 
     answer = graph_output["final_answer"]
     chunks_count = len(graph_output["retrieved_chunks"])
+    sources = graph_output.get("sources", [])
 
     result = {
         "question": request.question,
         "answer": answer,
         "chunks_used": chunks_count,
+        "sources": sources,
     }
     set_cached_answer(request.question, request.top_k, result)
     return QueryResponse(**result)
 
 
 @app.post("/upload", response_model=UploadResponse, dependencies=[Depends(verify_api_key)])
-async def upload_pdf(file: UploadFile = File(...), force: bool = False):
+def upload_pdf(file: UploadFile = File(...), force: bool = False):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
-    contents = await file.read()
+    contents = file.file.read()
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large. Max size is 10MB")
 
@@ -367,22 +377,22 @@ async def evaluate_query(request: QueryRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    initial_state = {
-        "query": request.question,
-        "retrieved_chunks": [],
-        "evaluation": "",
-        "final_answer": "",
-        "top_k": request.top_k,
-        "model": request.model,
-    }
-    try:
-        graph_output = crag_agent.invoke(initial_state)
-    except Exception as e:
-        logger.error(f"Agent pipeline failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Agent pipeline error: {str(e)}")
+    # Run the blocking agent pipeline in a thread so the event loop stays responsive.
+    import asyncio
+    graph_output = await asyncio.to_thread(
+        crag_agent.invoke,
+        {
+            "query": request.question,
+            "retrieved_chunks": [],
+            "evaluation": "",
+            "final_answer": "",
+            "top_k": request.top_k,
+            "model": request.model,
+        },
+    )
     answer = graph_output["final_answer"]
 
-    chunks_text = [content for content, _ in graph_output["retrieved_chunks"]]
+    chunks_text = [content for content, _score, _src in graph_output["retrieved_chunks"]]
     metrics = evaluate(request.question, answer, chunks_text)
     log_evaluation(request.question, answer, metrics)
 
@@ -395,7 +405,7 @@ async def evaluate_query(request: QueryRequest):
 
 
 @app.post("/cache/clear", dependencies=[Depends(verify_api_key)])
-async def clear_cache():
+def clear_cache():
     count = len(query_cache)
     query_cache.clear()
     logger.info(f"Cache cleared — {count} entries removed")

@@ -11,7 +11,9 @@ def fetch_all_chunks() -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, content FROM document_sections;")
+            cur.execute(
+                "SELECT id, content, meta->>'source' AS source FROM document_sections;"
+            )
             return cur.fetchall()
     finally:
         release_connection(conn)
@@ -64,12 +66,16 @@ def rerank(query: str, candidates: list, top_k: int = 3) -> list:
 
 
 def retrieve_chunks(query: str, top_k: int = 5) -> list:
-    """Return [(content, score), ...] fused and reranked."""
+    """Return [(content, score, source), ...] fused and reranked."""
     all_chunks = fetch_all_chunks()
     if not all_chunks:
         return []
+    source_map = {chunk[0]: chunk[2] for chunk in all_chunks}
     bm25_results = bm25_search(query, all_chunks, top_k=10)
     vector_results = vector_search(query, top_k=10)
     fused = reciprocal_rank_fusion(bm25_results, vector_results)
     reranked = rerank(query, fused[:20], top_k=top_k)
-    return [(content, score) for _, content, score in reranked]
+    return [
+        (content, score, source_map.get(doc_id, "Document"))
+        for doc_id, content, score in reranked
+    ]

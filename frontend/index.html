@@ -38,14 +38,6 @@
           <div class="section-label">Recent</div>
           <div id="recent-list" class="conv-list"></div>
         </section>
-        <section id="documents-section" class="conv-section">
-          <div class="section-label">Documents</div>
-          <div id="documents-list" class="conv-list"></div>
-          <button id="upload-btn" class="upload-btn">
-            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>
-            Upload PDF
-          </button>
-        </section>
       </div>
     </aside>
     <div id="sidebar-backdrop"></div>
@@ -66,7 +58,6 @@
         <div class="menu-wrap">
           <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu">&#8943;</button>
           <div id="menu-popup" class="menu-popup hidden">
-            <button data-act="evaluate">Evaluate last answer</button>
             <button data-act="clear">Clear chat</button>
             <button data-act="settings">Settings</button>
           </div>
@@ -74,10 +65,33 @@
       </header>
 
       <section id="chat-view" class="chat-view">
-        <div id="messages" class="messages"><div class="messages-inner"></div></div>
+        <div id="messages" class="messages">
+          <div class="messages-inner">
+            <div id="empty-state" class="empty-state">
+              <div class="empty-icon">
+                <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 16h-2v-7h2v7Zm0-9h-2V7h2v2Z"/></svg>
+              </div>
+              <div class="empty-title">How can we help you?</div>
+              <div class="empty-hint">Ask anything about your documents or research.</div>
+            </div>
+          </div>
+        </div>
         <div id="chat-composer" class="composer-wrap"></div>
       </section>
     </main>
+  </div>
+
+  <!-- Source modal -->
+  <div id="source-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span id="source-modal-title" class="modal-title">Source</span>
+        <button class="icon-btn modal-close" data-source-close="true" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div id="source-modal-text" class="source-modal-text"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Settings modal -->
@@ -92,24 +106,14 @@
         <input id="setting-api-key" type="password" class="text-input" placeholder="rag-secret-2026" />
         <label class="field-label" for="setting-topk">Top K (retrieval depth)</label>
         <input id="setting-topk" type="number" class="text-input" min="1" max="10" value="3" />
+        <label class="field-label">Evaluation</label>
+        <label class="check-row">
+          <input id="setting-bg-eval" type="checkbox" />
+          <span>Run evaluation in the background (uses extra API tokens)</span>
+        </label>
         <div class="status-row" id="setting-status"></div>
         <button id="save-settings" class="primary-btn">Save Settings</button>
         <button id="clear-cache" class="ghost-btn">Clear Backend Cache</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Evaluation modal -->
-  <div id="eval-modal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <span class="modal-title">Evaluation</span>
-        <button class="icon-btn modal-close" data-eval-close="true" aria-label="Close">&#10005;</button>
-      </div>
-      <div class="modal-body">
-        <div id="eval-loading" class="eval-loading hidden">Running evaluation...</div>
-        <div id="eval-question" class="eval-question hidden"></div>
-        <div id="eval-metrics" class="eval-metrics"></div>
       </div>
     </div>
   </div>
