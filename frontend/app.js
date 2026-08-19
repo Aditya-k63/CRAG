@@ -398,27 +398,15 @@
   }
 
   // ---------- Views ----------
-  function showWelcome() {
-    document.getElementById("welcome-view").classList.remove("hidden");
-    document.getElementById("chat-view").classList.add("hidden");
-  }
-
-  function showChat() {
-    document.getElementById("welcome-view").classList.add("hidden");
-    document.getElementById("chat-view").classList.remove("hidden");
-  }
-
   function refreshView() {
     var session = currentSession();
     var subtitle = document.getElementById("chat-subtitle");
     if (session.messages.length === 0) {
       subtitle.classList.add("hidden");
       subtitle.textContent = "";
-      showWelcome();
     } else {
       subtitle.textContent = session.title;
       subtitle.classList.remove("hidden");
-      showChat();
     }
   }
 
@@ -519,6 +507,7 @@
     persist();
     renderSidebar();
     refreshView();
+    renderMessages();
     closeSidebar();
     document.querySelector(".composer textarea").focus();
   }
@@ -530,6 +519,7 @@
     persist();
     renderSidebar();
     refreshView();
+    renderMessages();
   }
 
   // ---------- Sidebar toggle ----------
@@ -641,7 +631,6 @@
 
   // ---------- Init ----------
   function init() {
-    buildComposer(document.getElementById("welcome-composer"));
     buildComposer(document.getElementById("chat-composer"));
 
     document.getElementById("new-chat-btn").addEventListener("click", newChat);
@@ -677,7 +666,6 @@
     });
 
     // Settings
-    document.getElementById("settings-btn").addEventListener("click", openSettings);
     document.querySelectorAll("#settings-modal .modal-close, #settings-modal [data-close='true']").forEach(function (b) {
       b.addEventListener("click", closeSettings);
     });
