@@ -2,4 +2,7 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+*.log
 .env
+processed_data.pkl
+.pytest_cache/

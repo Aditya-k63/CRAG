@@ -18,6 +18,7 @@ RUN mkdir -p /var/log/supervisor
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 8000 8501
+# Backend API + Streamlit frontend (Render exposes $PORT, default 10000)
+EXPOSE 8000 10000
 
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/bin/sh", "start.sh"]

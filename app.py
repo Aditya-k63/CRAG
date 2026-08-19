@@ -1,8 +1,10 @@
-import streamlit as st
-import requests
+import os
 
-API_URL = "http://localhost:8000"
-API_KEY = "rag-secret-2026"  # Must match your local .env key
+import requests
+import streamlit as st
+
+API_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+API_KEY = os.getenv("API_KEY", "rag-secret-2026")  # Must match the backend API_KEY
 HEADERS = {"X-API-Key": API_KEY}
 
 # --- Page Config ---
@@ -86,7 +88,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("Built with FastAPI + pgvector + NVIDIA Cloud + LangGraph")
+    st.caption("Built with FastAPI + pgvector + Groq + LangGraph")
 
 # --- Main: Chat Interface ---
 

@@ -1,45 +1,42 @@
-# CRAG — Contextual Retrieval-Augmented Generation Stack
+# CRAG — Corrective Retrieval-Augmented Generation Stack
 
-An end-to-end RAG system that combines **LangGraph** agent orchestration with **Groq**'s inference engine for fast, context-aware question answering over your own documents. Built as a single deployable unit — FastAPI backend, Streamlit frontend, and a pgvector-backed knowledge store — designed to run comfortably on free-tier cloud hosting.
+An end-to-end RAG system combining **LangGraph** agent orchestration with **Groq**'s inference engine for fast, context-aware question answering over your own documents. Built as a single deployable unit — FastAPI backend, Streamlit frontend, and a pgvector-backed knowledge store — designed to run comfortably on free-tier cloud hosting.
 
 ## Why this exists
 
-Most RAG demos assume you have a multi-service setup (separate frontend, backend, and vector DB deployments) with generous hosting budgets. CRAG is built the opposite way: everything — ingestion, embedding, retrieval, agent reasoning, and UI — runs inside **one container**, so it deploys cleanly on single-port platforms like Render's free tier without sacrificing the LangGraph agent architecture underneath.
+Most RAG demos assume a multi-service setup with generous hosting budgets. CRAG is built the opposite way: everything — ingestion, embedding, retrieval, agent reasoning, and UI — runs inside **one container**, so it deploys cleanly on single-port platforms like Render's free tier without sacrificing the LangGraph agent architecture underneath.
+
+## The corrective flow (how the agent decides)
+
+```text
+User query
+   │
+   ▼
+retrieve ──▶ hybrid search (BM25 + pgvector + RRF + cross-encoder rerank)
+   │
+   ▼
+evaluate ──▶ Groq grades the retrieved chunks ("yes" / "no")
+   │
+   ├─ "yes" ────────────────────────────────▶ generate
+   │                                           │
+   └─ "no" ──▶ web_fallback (DuckDuckGo) ──▶ generate
+                                               │
+                                               ▼
+                                         final answer
+```
+
+The **correction** is the differentiator: if the local knowledge base doesn't actually answer the query, the agent detects it and falls back to web search instead of hallucinating from irrelevant context.
 
 ## Features
 
-- **Agentic retrieval** via LangGraph — queries are routed through an agent graph rather than a fixed retrieval pipeline, so the system can reason about *how* to answer, not just fetch-and-stuff context.
-- **Local embeddings** using `sentence-transformers` — no external embedding API calls, keeping inference costs down.
-- **PDF ingestion** with `pdfplumber` for text extraction and chunking straight into the vector store.
-- **pgvector-backed search** on PostgreSQL — structured, queryable, and production-friendly compared to a standalone vector DB.
+- **Agentic retrieval** via LangGraph — queries are routed through an agent graph that reasons about *how* to answer, not just fetch-and-stuff context.
+- **Hybrid retrieval** — BM25 + pgvector results fused with Reciprocal Rank Fusion, then cross-encoder reranking.
+- **Local embeddings** with `sentence-transformers` — no external embedding API calls.
+- **PDF ingestion** — upload via the UI, text is extracted, chunked, and embedded straight into the vector store.
+- **pgvector-backed search** on PostgreSQL — structured, queryable, production-friendly.
 - **Groq inference** for low-latency LLM responses inside the agent loop.
-- **Streamlit dashboard** for real-time semantic search and live visibility into the agent's reasoning steps.
-- **Single-container deployment** — one Dockerfile, one process manager, one port exposed.
-
-## Architecture
-
-```text
-┌─────────────────────────────────────────────┐
-│                  Docker Container             │
-│                                               │
-│   ┌───────────────┐        ┌──────────────┐  │
-│   │  Streamlit UI  │──────▶│   FastAPI     │  │
-│   │  (port 10000) │◀──────│  (port 8000)  │  │
-│   └───────────────┘        └───────┬──────┘  │
-│                                     │          │
-│                          ┌──────────▼───────┐  │
-│                          │  LangGraph Agent │  │
-│                          │   + Groq LLM     │  │
-│                          └──────────┬───────┘  │
-│                                     │          │
-│                          ┌──────────▼───────┐  │
-│                          │ PostgreSQL +     │  │
-│                          │ pgvector store   │  │
-│                          └──────────────────┘  │
-└─────────────────────────────────────────────┘
-```
-
-`run.py` starts both services concurrently on container init. The Streamlit app talks to the FastAPI layer over `localhost`, so nothing leaves the container except the single exposed port.
+- **Streamlit dashboard** for real-time semantic search and live visibility into the agent's reasoning.
+- **Single-container deployment** — one Dockerfile, one process manager (supervisord, auto-restarts services), one exposed port.
 
 ## Tech Stack
 
@@ -50,26 +47,31 @@ Most RAG demos assume you have a multi-service setup (separate frontend, backend
 | Backend API | FastAPI + Uvicorn |
 | Frontend | Streamlit |
 | Vector storage | PostgreSQL + pgvector |
-| Embeddings | sentence-transformers (local) |
-| PDF parsing | pdfplumber |
+| Embeddings / reranker | sentence-transformers (local) |
+| Hybrid retrieval | BM25 (rank-bm25) + RRF |
+| PDF parsing | pypdf |
 | Deployment | Docker (unified single-service build) |
 
 ## Repository Layout
 
 ```text
 CRAG/
-├── .github/
-│   └── workflows/
-│       └── build-pipeline.yml   # CI/CD linting and validation
-├── Dockerfile                   # Unified multi-service build recipe
-├── app.py                       # Streamlit UI
-├── docker-compose.yml           # Local container orchestration
-├── evaluate.py                  # RAG accuracy evaluation scripts
-├── ingestion.py                 # PDF processing and chunking pipeline
-├── main.py                      # FastAPI app + LangGraph agent setup
-├── rag_query.py                 # Vector search and context compilation
-├── requirements.txt             # Python dependencies
-└── run.py                       # Concurrent process runner
+├── .github/workflows/build-pipeline.yml   # CI: lint, unit tests, Docker build/push
+├── Dockerfile                             # Unified multi-service build recipe
+├── start.sh                               # Container entrypoint (honors $PORT)
+├── supervisord.conf                       # Process manager (auto-restart)
+├── app.py                                 # Streamlit UI
+├── config.py                              # Env settings + lazy-loaded models
+├── db.py                                  # Lazy connection pool + schema bootstrap
+├── utils.py                               # Pure helpers (chunking, fusion, cosine)
+├── retrieval.py                           # Hybrid retrieval pipeline
+├── metrics.py                             # Faithfulness / relevance / precision
+├── rag_query.py                           # LangGraph CRAG agent
+├── main.py                                # FastAPI app
+├── ingestion.py                           # Schema init + batch ingestion
+├── evaluate.py                            # RAG accuracy evaluation script
+├── requirements.txt
+└── tests/                                 # Unit tests (pure logic, no DB needed)
 ```
 
 ## Getting Started
@@ -77,53 +79,70 @@ CRAG/
 ### Prerequisites
 
 - Python 3.11
-- A running PostgreSQL instance with the `pgvector` extension enabled
+- Docker + Docker Compose (easiest path) **or** a PostgreSQL instance with the `pgvector` extension
 
-### 1. Configure environment variables
-
-Create a `.env` file in the project root:
-
-```env
-GROQ_API_KEY=your_groq_api_key_here
-DATABASE_URL=postgresql://username:password@localhost:5432/crag_db
-```
-
-### 2. Install dependencies
+### Option A — Docker Compose (recommended)
 
 ```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-### 3. Run locally
-
-```powershell
-python run.py
+copy .env.example .env     # then fill in GROQ_API_KEY
+docker compose up --build
 ```
 
 - Streamlit UI → `http://localhost:10000`
 - FastAPI Swagger docs → `http://localhost:8000/docs`
 
-## Deploying to Render
+The DB schema is created automatically on app startup — no manual migration step.
 
-1. Create a new **Web Service** on Render and connect this repository.
-2. Set **Runtime** to `Docker` and pick an instance type (Free tier works).
-3. Add environment variables in the Render dashboard:
-   - `GROQ_API_KEY`
-   - `DATABASE_URL` (your managed PostgreSQL/pgvector connection string)
-4. Deploy. Render builds from the root `Dockerfile`, exposes port `10000`, and starts the stack via `run.py`.
+### Option B — Run locally
+
+1. Start a PostgreSQL instance with pgvector enabled.
+2. Create a `.env` file from `.env.example`:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+API_KEY=rag-secret-2026
+DB_NAME=crag_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+3. Install and run:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python run.py
+```
+
+## API
+
+All endpoints except `/` and `/health` require the `X-API-Key` header.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | DB connectivity + cache size |
+| GET | `/documents` | List ingested PDFs and their chunk counts |
+| POST | `/query` | Ask a question through the CRAG agent (`{"question", "top_k"}`) |
+| POST | `/evaluate-query` | Query + RAG quality metrics, logged to `rag_evaluations` |
+| POST | `/upload` | Ingest a PDF (multipart `file`, optional `?force=true`) |
+| POST | `/cache/clear` | Clear the in-memory query cache |
 
 ## Evaluation
 
-`evaluate.py` includes scripts for measuring retrieval and answer accuracy — useful for tracking regressions as the ingestion pipeline or prompt strategy changes.
+```powershell
+python evaluate.py
+```
+
+Scores faithfulness (hallucination check), answer relevance, and context precision on a fixed test set, then logs every run to the `rag_evaluations` table so you can track regressions over time.
 
 ## Roadmap
 
-- [ ] Add reranking step before context compilation
-- [ ] Support multi-document conversational memory
-- [ ] Add authentication for production deployments
-- [ ] CI pipeline expansion (currently lint/validate only)
+- [ ] Multi-document conversational memory
+- [ ] Authentication for production deployments
+- [ ] Streaming responses from the agent graph
 
 ## License
 

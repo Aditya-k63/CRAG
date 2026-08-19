@@ -23,7 +23,7 @@ services:
     container_name: crag_app
     ports:
       - "8000:8000"
-      - "8501:8501"
+      - "10000:10000"
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -31,8 +31,8 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - GROQ_API_KEY=${GROQ_API_KEY}
-      - HF_TOKEN=${HF_TOKEN}
       - API_KEY=${API_KEY}
+      - PORT=10000
       - BACKEND_URL=http://localhost:8000
     depends_on:
       db:
